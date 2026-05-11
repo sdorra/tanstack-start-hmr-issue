@@ -3,6 +3,7 @@ import { sessionMiddleware } from "#/lib/function-middleware";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { setCookie } from "@tanstack/react-start/server";
+import { useState } from "react";
 
 const getSessionFn = createServerFn({ method: "GET" })
   .middleware([sessionMiddleware])
@@ -34,16 +35,33 @@ const authenticateFn = createServerFn({ method: "POST" })
     setCookie("userid", String(user.id), { path: "/" });
   });
 
+const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
+  setCookie("userid", "", { path: "/", expires: new Date(0) });
+});
+
 function Home() {
   const { session } = Route.useLoaderData();
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    session.isAuthenticated,
+  );
   return (
     <div className="p-8">
       <h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
       <p className="mt-4 text-lg">
         Edit <code>src/routes/index.tsx</code> to get started.
       </p>
-      {session.isAuthenticated ? (
-        <Link to="/private">Go to private route</Link>
+      {isAuthenticated ? (
+        <div className="mt-4 text-lg">
+          <Link to="/private">Go to private route</Link>
+          <button
+            className="block"
+            onClick={() => {
+              logoutFn().then(() => setIsAuthenticated(false));
+            }}
+          >
+            Logout
+          </button>
+        </div>
       ) : (
         <form
           className="mt-4"
@@ -52,9 +70,11 @@ function Home() {
             const formData = new FormData(e.currentTarget);
             const name = formData.get("name");
             if (typeof name === "string") {
-              authenticateFn({ data: name }).catch((err) => {
-                console.error(err);
-              });
+              authenticateFn({ data: name })
+                .then(() => setIsAuthenticated(true))
+                .catch((err) => {
+                  console.error(err);
+                });
             }
           }}
         >
